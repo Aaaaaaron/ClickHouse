@@ -2451,7 +2451,7 @@ bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool onl
         for (const auto & column : source_columns)
             name_set.erase(column.name);
 
-        Names required_output(names.begin(), names.end());
+        Names required_output(name_set.begin(), name_set.end());
         step.actions->finalize(required_output);
     }
 
