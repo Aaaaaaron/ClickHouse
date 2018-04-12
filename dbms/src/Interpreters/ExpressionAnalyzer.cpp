@@ -2440,16 +2440,23 @@ bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool onl
     initChain(chain, source_columns);
     auto & step = chain.getLastStep();
     getRootActions(select_query->prewhere_expression, only_types, false, step.actions);
-    step.required_output.push_back(select_query->prewhere_expression->getColumnName());
+    String prewhere_column_name = select_query->prewhere_expression->getColumnName();
+    step.required_output.push_back(prewhere_column_name);
 
     {
         /// Remove unused source_columns from prewhere actions.
+        auto tmp_actions = std::make_shared<ExpressionActions>(source_columns, settings);
+        getRootActions(select_query->prewhere_expression, only_types, false, tmp_actions);
+        tmp_actions->finalize({prewhere_column_name});
+        auto required_columns = tmp_actions->getRequiredColumns();
+        NameSet required_source_columns(required_columns.begin(), required_columns.end());
 
         auto names = step.actions->getSampleBlock().getNames();
         NameSet name_set(names.begin(), names.end());
 
         for (const auto & column : source_columns)
-            name_set.erase(column.name);
+            if (required_source_columns.count(column.name) == 0)
+                name_set.erase(column.name);
 
         Names required_output(name_set.begin(), name_set.end());
         step.actions->finalize(required_output);
