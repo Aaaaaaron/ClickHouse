@@ -2430,40 +2430,56 @@ bool ExpressionAnalyzer::appendJoin(ExpressionActionsChain & chain, bool only_ty
     return true;
 }
 
-bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool /*only_types*/)
+bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool only_types)
 {
     assertSelect();
 
     if (!select_query->prewhere_expression)
         return false;
 
-    ExpressionAnalyzer analyzer(select_query->prewhere_expression, context, nullptr, source_columns);
-
-    chain.settings = settings;
-    chain.steps.emplace_back(analyzer.getActions(false));
-
-    ExpressionActionsChain::Step & step = chain.steps.back();
+    initChain(chain, source_columns);
+    auto & step = chain.getLastStep();
+    getRootActions(select_query->prewhere_expression, only_types, false, step.actions);
     step.required_output.push_back(select_query->prewhere_expression->getColumnName());
 
-    ColumnsWithTypeAndName columns = chain.getLastActions()->getSampleBlock().getColumnsWithTypeAndName();
-    NameSet prewhere_names;
-    NameSet additional_names;
-
-    prewhere_names.reserve(columns.size());
-    for (const auto & column : chain.getLastActions()->getRequiredColumns())
-        prewhere_names.emplace(column);
-
-    for (const auto & column : source_columns)
     {
-        if (prewhere_names.count(column.name) == 0)
-        {
-            columns.emplace_back(column.type, column.name);
-            additional_names.emplace(column.name);
-        }
+        /// Remove unused source_columns from prewhere actions.
+
+        auto names = step.actions->getSampleBlock().getNames();
+        NameSet name_set(names.begin(), names.end());
+
+        for (const auto & column : source_columns)
+            name_set.erase(column.name);
+
+        Names required_output(names.begin(), names.end());
+        step.actions->finalize(required_output);
     }
 
-    chain.steps.emplace_back(std::make_shared<ExpressionActions>(std::move(columns), settings));
-    chain.steps.back().additional_input = std::move(additional_names);
+    {
+        /// Add empty action with input = {prewhere actions output} + {unused source columns}
+        /// Reasons:
+        /// 1. Remove remove source columns which are used only in prewhere actions during prewhere actions execution.
+        ///    Example: select A prewhere B > 0. B can be removed at prewhere step.
+        /// 2. Store side columns which were calculated during prewhere actions execution if they are used.
+        ///    Example: select F(A) prewhere F(A) > 0. F(A) can be saved from prewhere step.
+        /// 3. Check if we can remove filer column at prewhere step. If we can, action will store single REMOVE_COLUMN.
+        ColumnsWithTypeAndName columns = step.actions->getSampleBlock().getColumnsWithTypeAndName();
+        auto required_columns = step.actions->getRequiredColumns();
+        NameSet prewhere_input_names(required_columns.begin(), required_columns.end());
+        NameSet unused_source_columns;
+
+        for (const auto & column : source_columns)
+        {
+            if (prewhere_input_names.count(column.name) == 0)
+            {
+                columns.emplace_back(column.type, column.name);
+                unused_source_columns.emplace(column.name);
+            }
+        }
+
+        chain.steps.emplace_back(std::make_shared<ExpressionActions>(std::move(columns), settings));
+        chain.steps.back().additional_input = std::move(unused_source_columns);
+    }
 
     return true;
 }
