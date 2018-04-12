@@ -230,6 +230,7 @@ struct ExpressionActionsChain
     struct Step
     {
         ExpressionActionsPtr actions;
+        NameSet additional_input;
         Names required_output;
 
         Step(const ExpressionActionsPtr & actions_ = nullptr, const Names & required_output_ = Names())

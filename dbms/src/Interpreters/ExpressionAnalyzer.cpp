@@ -60,6 +60,7 @@
 #include <DataTypes/DataTypeFactory.h>
 #include <DataTypes/DataTypeFunction.h>
 #include <Functions/FunctionsMiscellaneous.h>
+#include <ext/map.h>
 
 
 namespace DB
@@ -2444,8 +2445,25 @@ bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool /*o
     ExpressionActionsChain::Step & step = chain.steps.back();
     step.required_output.push_back(select_query->prewhere_expression->getColumnName());
 
-    chain.addStep();
+    ColumnsWithTypeAndName columns = chain.getLastActions()->getSampleBlock().getColumnsWithTypeAndName();
+    NameSet prewhere_names;
+    NameSet additional_names;
+
+    prewhere_names.reserve(columns.size());
+    for (const auto & column : columns)
+        prewhere_names.emplace(column.name);
+
+    for (const auto & column : source_columns)
+    {
+        if (prewhere_names.count(column.name) == 0)
+        {
+            columns.emplace_back(column);
+            additional_names.emplace(column.name);
+        }
+    }
+
     chain.steps.emplace_back(std::make_shared<ExpressionActions>(source_columns, settings));
+    chain.steps.back().additional_input = std::move(additional_names);
 
     return true;
 }

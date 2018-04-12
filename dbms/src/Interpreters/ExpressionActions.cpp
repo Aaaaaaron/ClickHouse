@@ -1016,10 +1016,12 @@ void ExpressionActionsChain::finalize()
     for (int i = static_cast<int>(steps.size()) - 1; i >= 0; --i)
     {
         Names required_output = steps[i].required_output;
+        const NameSet & additional_input = steps[i].additional_input;
         if (i + 1 < static_cast<int>(steps.size()))
         {
             for (const auto & it : steps[i + 1].actions->getRequiredColumnsWithTypes())
-                required_output.push_back(it.name);
+                if (additional_input.count(it.name) == 0)
+                    required_output.push_back(it.name);
         }
         steps[i].actions->finalize(required_output);
     }
