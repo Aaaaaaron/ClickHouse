@@ -2450,8 +2450,8 @@ bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool /*o
     NameSet additional_names;
 
     prewhere_names.reserve(columns.size());
-    for (const auto & column : columns)
-        prewhere_names.emplace(column.name);
+    for (const auto & column : chain.getLastActions()->getRequiredColumns())
+        prewhere_names.emplace(column);
 
     for (const auto & column : source_columns)
     {
