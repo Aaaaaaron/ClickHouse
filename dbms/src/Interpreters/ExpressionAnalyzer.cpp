@@ -2444,6 +2444,9 @@ bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool /*o
     ExpressionActionsChain::Step & step = chain.steps.back();
     step.required_output.push_back(select_query->prewhere_expression->getColumnName());
 
+    chain.addStep();
+    chain.steps.emplace_back(std::make_shared<ExpressionActions>(source_columns, settings));
+
     return true;
 }
 

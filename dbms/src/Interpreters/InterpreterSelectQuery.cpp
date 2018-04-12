@@ -691,8 +691,7 @@ QueryProcessingStage::Enum InterpreterSelectQuery::executeFetchColumns(
         if (!dry_run && query_analyzer->appendPrewhere(chain, false))
         {
             query_info.prewhere_info = prewhere_info = std::make_shared<PrewhereInfo>(
-                    chain.getLastActions(), query.prewhere_expression->getColumnName());
-            chain.addStep();
+                    chain.steps.front().actions, query.prewhere_expression->getColumnName());
             remove_prewhere_column_actions = chain.getLastActions();
             chain.addStep();
         }
