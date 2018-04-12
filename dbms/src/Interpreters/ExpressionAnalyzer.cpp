@@ -2457,7 +2457,7 @@ bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool /*o
     {
         if (prewhere_names.count(column.name) == 0)
         {
-            columns.emplace_back(column);
+            columns.emplace_back(column.type, column.name);
             additional_names.emplace(column.name);
         }
     }
