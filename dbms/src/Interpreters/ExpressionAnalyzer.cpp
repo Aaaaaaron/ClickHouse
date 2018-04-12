@@ -2462,7 +2462,7 @@ bool ExpressionAnalyzer::appendPrewhere(ExpressionActionsChain & chain, bool /*o
         }
     }
 
-    chain.steps.emplace_back(std::make_shared<ExpressionActions>(source_columns, settings));
+    chain.steps.emplace_back(std::make_shared<ExpressionActions>(std::move(columns), settings));
     chain.steps.back().additional_input = std::move(additional_names);
 
     return true;
